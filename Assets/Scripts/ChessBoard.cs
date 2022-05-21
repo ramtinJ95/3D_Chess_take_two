@@ -8,6 +8,7 @@ public class ChessBoard : MonoBehaviour
     [Header("Art stuff")]
     [SerializeField] private Material tileMaterial;
     [SerializeField] private Material hoverMaterial;
+    [SerializeField] private Material highLightMaterial;
     [SerializeField] private float tileSize = 1.0f;
     [SerializeField] private float yOffset = 0.2f;
     [SerializeField] private Vector3 boardCenter = Vector3.zero;
@@ -19,9 +20,15 @@ public class ChessBoard : MonoBehaviour
     [SerializeField] private GameObject[] prefabs;
     [SerializeField] private Material[] teamMaterials;
 
+    [Header("Sounds")]
+    [SerializeField] private AudioSource moveSound;
+    [SerializeField] private AudioSource captureSound;
+
     // LOGIC
     private ChessPiece[,] chessPieces;
     private ChessPiece currentlyDraging;
+    private List<Vector2Int> availableMoves = new List<Vector2Int>();
+    private bool isWhiteTurn; // 0 for white and 1 for black
     private List<ChessPiece> deadWhites = new List<ChessPiece>();
     private List<ChessPiece> deadBlacks = new List<ChessPiece>();
     private const int TILE_COUNT_X = 8;
@@ -33,6 +40,7 @@ public class ChessBoard : MonoBehaviour
 
     private void Awake()
     {
+        isWhiteTurn = true;
         generateAllTiles(tileSize, TILE_COUNT_X, TILE_COUNT_Y);
         spawnAllPieces();
         positionAllPieces();
@@ -48,7 +56,7 @@ public class ChessBoard : MonoBehaviour
 
         RaycastHit info;
         Ray ray = currentCamera.ScreenPointToRay(Input.mousePosition);
-        if (Physics.Raycast(ray, out info, 100, LayerMask.GetMask("Tile", "Hover")))
+        if (Physics.Raycast(ray, out info, 100, LayerMask.GetMask("Tile", "Hover", "Highlight")))
         {
             // Get the indexes of the tile we hit with the ray we emit when we click
             Vector2Int hitPosition = lookUpTileIndex(info.transform.gameObject);
@@ -74,10 +82,11 @@ public class ChessBoard : MonoBehaviour
                 if(chessPieces[hitPosition.x, hitPosition.y] != null)
                 {
                     // is it our turn?
-                    if(true)
+                    if(isCorrectTurn(chessPieces[hitPosition.x, hitPosition.y]))
                     {
                         currentlyDraging = chessPieces[hitPosition.x, hitPosition.y];
-
+                        availableMoves = currentlyDraging.GetAvailableMoves(ref chessPieces, TILE_COUNT_X, TILE_COUNT_Y);
+                        highLightTiles();
                     }
                 }
             }
@@ -88,12 +97,10 @@ public class ChessBoard : MonoBehaviour
                 if (!validMove)
                 {
                     currentlyDraging.SetPosition(getTileCenter(previousPosition.x, previousPosition.y));
-                    currentlyDraging = null;
+
                 }
-                else
-                {
-                    currentlyDraging = null;
-                }
+                currentlyDraging = null;
+                removeHighLightTiles();
             }
         }
         else
@@ -109,6 +116,7 @@ public class ChessBoard : MonoBehaviour
             {
                 currentlyDraging.SetPosition(getTileCenter(currentlyDraging.currentX, currentlyDraging.currentY));
                 currentlyDraging = null;
+                removeHighLightTiles();
 
             }
         }
@@ -243,6 +251,7 @@ public class ChessBoard : MonoBehaviour
         chessPieces[x, y].currentY = y;
 
         chessPieces[x, y].SetPosition(getTileCenter(x, y), force);
+        moveSound.Play();
     }
 
     private Vector3 getTileCenter(int x, int y)
@@ -266,6 +275,9 @@ public class ChessBoard : MonoBehaviour
 
     private bool moveTo(ChessPiece cp, int x, int y)
     {
+        if (!containsValideMove(ref availableMoves, new Vector2(x, y)))
+            return false;
+
         // is there another piece at this position we want to go to
         if(chessPieces[x,y] != null)
         {
@@ -277,6 +289,7 @@ public class ChessBoard : MonoBehaviour
             if(othercp.team ==0)
             {
                 deadWhites.Add(othercp);
+                captureSound.Play();
                 othercp.SetScale(Vector3.one * deathSize);
                 othercp.SetPosition(new Vector3(8 * tileSize, yOffset, -1 * tileSize)
                     - bounds
@@ -286,6 +299,7 @@ public class ChessBoard : MonoBehaviour
             else
             {
                 deadBlacks.Add(othercp);
+                captureSound.Play();
                 othercp.SetScale(Vector3.one * deathSize);
                 othercp.SetPosition(new Vector3(-1 * tileSize, yOffset, 8 * tileSize)
                     - bounds
@@ -298,6 +312,43 @@ public class ChessBoard : MonoBehaviour
         chessPieces[x, y] = cp;
         chessPieces[previousPosition.x, previousPosition.y] = null;
         positionSinglePiece(x, y);
+        isWhiteTurn = !isWhiteTurn;
         return true;
+    }
+
+    private bool isCorrectTurn(ChessPiece cp)
+    {
+        if (cp.team == 0 && isWhiteTurn) return true;
+        if (cp.team == 1 && !isWhiteTurn) return true;
+        else return false;
+    }
+
+    private void highLightTiles()
+    {
+        for (int i = 0; i < availableMoves.Count; i++)
+        {
+            tiles[availableMoves[i].x, availableMoves[i].y].layer = LayerMask.NameToLayer("Highlight");
+            tiles[availableMoves[i].x, availableMoves[i].y].GetComponent<MeshRenderer>().material = highLightMaterial;
+        }
+    }
+
+    private void removeHighLightTiles()
+    {
+        for (int i = 0; i < availableMoves.Count; i++)
+        {
+            tiles[availableMoves[i].x, availableMoves[i].y].layer = LayerMask.NameToLayer("Tile");
+            tiles[availableMoves[i].x, availableMoves[i].y].GetComponent<MeshRenderer>().material = tileMaterial;
+        }
+        availableMoves.Clear();
+    }
+
+    private bool containsValideMove(ref List<Vector2Int> moves, Vector2 pos)
+    {
+        for (int i = 0; i < moves.Count; i++)
+        {
+            if (moves[i].x == pos.x && moves[i].y == pos.y)
+                return true;
+        }
+        return false;
     }
 }
