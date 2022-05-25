@@ -12,12 +12,14 @@ public class Pawn : ChessPiece
 
         if (board[currentX, currentY + direction] == null)
         {
-            if (team == 0 && currentY == 1 && board[currentX, currentY + (direction * 2)] == null)
+            // white start move
+            if(team == 0 && currentY == 1 && board[currentX, currentY + (direction * 2)]==null)
             {
                 r.Add(new Vector2Int(currentX, currentY + direction));
-                r.Add(new Vector2Int(currentX, currentY + (direction * 2)));
+                r.Add(new Vector2Int(currentX, currentY + (direction * 2) ));
             }
-            else if (team == 1 && currentY == 6 && board[currentX, currentY + (direction * 2)] == null)
+            // black start move
+            else if (team == 1 && currentY == 6 && board[currentX, currentY + (direction * 2)]==null)
             {
                 r.Add(new Vector2Int(currentX, currentY + direction));
                 r.Add(new Vector2Int(currentX, currentY + (direction * 2)));
@@ -27,6 +29,8 @@ public class Pawn : ChessPiece
                 r.Add(new Vector2Int(currentX, currentY + direction));
             }
         }
+
+
 
         return r;
     }
