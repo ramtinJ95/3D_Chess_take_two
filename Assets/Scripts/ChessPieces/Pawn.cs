@@ -30,7 +30,13 @@ public class Pawn : ChessPiece
             }
         }
 
-
+        if (board[currentX - 1, currentY + direction] != null && (currentX - 1 >= 0) )
+        {
+            if ( board[currentX - 1, currentY + direction].team != team)
+            {
+                r.Add(new Vector2Int(currentX - 1, currentY + direction));
+            }
+        }
 
         return r;
     }
